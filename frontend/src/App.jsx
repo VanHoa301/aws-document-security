@@ -2,6 +2,7 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import 'bootstrap/dist/css/bootstrap.min.css';
 import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
+import Incidents from './pages/Incidents';
 import Upload from './pages/Upload';
 import PrivateRoute from './components/PrivateRoute';
 
@@ -23,6 +24,14 @@ export default function App() {
           element={
             <PrivateRoute>
               <Upload />
+            </PrivateRoute>
+          }
+        />
+        <Route
+          path="/incidents"
+          element={
+            <PrivateRoute>
+              <Incidents />
             </PrivateRoute>
           }
         />

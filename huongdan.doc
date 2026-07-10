@@ -1,0 +1,317 @@
+HUONG DAN TAO AWS THAT CHO DU AN DA_AWS_FCAJ
+
+Muc tieu
+--------
+Huong dan nay giup nhom tao cac dich vu AWS that de backend Flask ket noi voi:
+
+- Amazon S3: luu file tai lieu
+- Amazon DynamoDB table Documents: luu metadata tai lieu
+- Amazon DynamoDB table SecurityIncidents: luu su co bao mat
+
+Sau khi tao xong, backend se doc cau hinh tu file:
+
+backend/.env
+
+Noi dung can co trong backend/.env:
+
+AWS_REGION=ap-southeast-1
+S3_BUCKET_NAME=<your-private-s3-bucket>
+DYNAMODB_DOCUMENTS_TABLE=Documents
+DYNAMODB_INCIDENTS_TABLE=SecurityIncidents
+JWT_SECRET_KEY=<random-secret-at-least-32-characters>
+FLASK_DEBUG=0
+
+
+1. Cai dat va cau hinh AWS CLI
+------------------------------
+Mo PowerShell va kiem tra AWS CLI:
+
+aws --version
+
+Neu chua co AWS CLI thi can cai dat AWS CLI truoc.
+
+Sau do cau hinh AWS:
+
+aws configure
+
+Nhap cac thong tin:
+
+AWS Access Key ID: <access key cua nhom>
+AWS Secret Access Key: <secret key cua nhom>
+Default region name: ap-southeast-1
+Default output format: json
+
+Kiem tra dang nhap dung AWS account:
+
+aws sts get-caller-identity
+
+
+2. Tao S3 bucket luu tai lieu
+-----------------------------
+Chon ten bucket khong trung tren toan AWS. Vi du:
+
+$REGION="ap-southeast-1"
+$BUCKET="da-aws-documents-nhom5-2026"
+
+Tao bucket:
+
+aws s3api create-bucket `
+  --bucket $BUCKET `
+  --region $REGION `
+  --create-bucket-configuration LocationConstraint=$REGION
+
+Chan public access cho bucket:
+
+aws s3api put-public-access-block `
+  --bucket $BUCKET `
+  --public-access-block-configuration "BlockPublicAcls=true,IgnorePublicAcls=true,BlockPublicPolicy=true,RestrictPublicBuckets=true"
+
+Bat versioning:
+
+aws s3api put-bucket-versioning `
+  --bucket $BUCKET `
+  --versioning-configuration Status=Enabled
+
+Kiem tra bucket:
+
+aws s3 ls
+
+
+3. Tao DynamoDB table Documents
+-------------------------------
+Bang Documents dung de luu metadata cua file tai lieu.
+
+Lenh tao bang:
+
+aws dynamodb create-table `
+  --table-name Documents `
+  --attribute-definitions AttributeName=document_id,AttributeType=S `
+  --key-schema AttributeName=document_id,KeyType=HASH `
+  --billing-mode PAY_PER_REQUEST `
+  --region ap-southeast-1
+
+Kiem tra trang thai:
+
+aws dynamodb describe-table `
+  --table-name Documents `
+  --region ap-southeast-1 `
+  --query "Table.TableStatus"
+
+Ket qua can la:
+
+"ACTIVE"
+
+
+4. Tao DynamoDB table SecurityIncidents
+---------------------------------------
+Bang SecurityIncidents dung de luu cac su co bao mat tu GuardDuty, Security Hub, EventBridge va Lambda.
+
+Lenh tao bang:
+
+aws dynamodb create-table `
+  --table-name SecurityIncidents `
+  --attribute-definitions AttributeName=incident_id,AttributeType=S `
+  --key-schema AttributeName=incident_id,KeyType=HASH `
+  --billing-mode PAY_PER_REQUEST `
+  --region ap-southeast-1
+
+Kiem tra trang thai:
+
+aws dynamodb describe-table `
+  --table-name SecurityIncidents `
+  --region ap-southeast-1 `
+  --query "Table.TableStatus"
+
+Ket qua can la:
+
+"ACTIVE"
+
+
+5. Tao file backend/.env
+------------------------
+Trong thu muc backend, tao file moi ten la:
+
+.env
+
+Noi dung mau:
+
+AWS_REGION=ap-southeast-1
+S3_BUCKET_NAME=da-aws-documents-nhom5-2026
+DYNAMODB_DOCUMENTS_TABLE=Documents
+DYNAMODB_INCIDENTS_TABLE=SecurityIncidents
+JWT_SECRET_KEY=nhom5_secret_key_random_32_characters_2026
+FLASK_DEBUG=0
+
+Luu y:
+- S3_BUCKET_NAME phai trung voi bucket da tao.
+- JWT_SECRET_KEY nen la chuoi bi mat dai hon 32 ky tu.
+- Khong commit file .env len GitHub.
+- Chi commit file .env.example.
+
+
+6. Chay backend voi AWS that
+----------------------------
+Mo PowerShell:
+
+cd "D:\OneDrive\Máy tính\da_aws_fcaj\backend"
+
+Kich hoat virtual environment:
+
+.\venv\Scripts\Activate.ps1
+
+Cai dependencies:
+
+pip install -r requirements.txt
+
+Chay backend:
+
+python app.py
+
+Backend se chay tai:
+
+http://127.0.0.1:5000
+
+Kiem tra health:
+
+Invoke-RestMethod http://127.0.0.1:5000/api/health
+
+Neu cau hinh dung, ket qua se co:
+
+status: ok
+s3: ok
+documents_table: ok
+incidents_table: ok
+
+
+7. Chay frontend
+----------------
+Mo PowerShell khac:
+
+cd "D:\OneDrive\Máy tính\da_aws_fcaj\frontend"
+
+Cai dependencies:
+
+npm install
+
+Chay frontend:
+
+npm run dev
+
+Mo trinh duyet:
+
+http://127.0.0.1:5173
+
+Tai khoan demo:
+
+admin / admin123
+user1 / password1
+
+
+8. Test upload tai lieu
+-----------------------
+Tren web:
+
+1. Dang nhap bang admin / admin123
+2. Vao trang Upload
+3. Upload file .pdf, .txt, .docx, .xlsx, .png hoac .jpg
+4. Quay lai Dashboard
+5. Kiem tra file hien trong danh sach
+
+Kiem tra tren AWS S3:
+
+aws s3 ls s3://da-aws-documents-nhom5-2026
+
+Kiem tra tren DynamoDB Documents:
+
+aws dynamodb scan `
+  --table-name Documents `
+  --region ap-southeast-1
+
+
+9. Test incident demo
+---------------------
+Them incident demo vao DynamoDB:
+
+aws dynamodb put-item `
+  --table-name SecurityIncidents `
+  --region ap-southeast-1 `
+  --item '{
+    "incident_id": {"S": "demo-001"},
+    "timestamp": {"S": "2026-07-06T10:00:00Z"},
+    "finding_type": {"S": "UnauthorizedAccess:EC2/SSHBruteForce"},
+    "severity": {"S": "HIGH"},
+    "status": {"S": "OPEN"},
+    "region": {"S": "ap-southeast-1"},
+    "account_id": {"S": "demo-account"},
+    "resource_id": {"S": "i-demo123"}
+  }'
+
+Mo trang incidents:
+
+http://127.0.0.1:5173/incidents
+
+Neu thanh cong, se thay incident demo hien tren giao dien.
+
+Admin co the doi status incident:
+
+- OPEN
+- INVESTIGATING
+- RESOLVED
+
+
+10. Neu health khong OK
+-----------------------
+Neu s3 khong OK:
+
+- Sai S3_BUCKET_NAME trong backend/.env
+- Bucket chua ton tai
+- Sai region
+- IAM user thieu quyen S3
+
+Neu documents_table khong OK:
+
+- Chua tao table Documents
+- Table chua ACTIVE
+- Sai ten table trong backend/.env
+- IAM user thieu quyen DynamoDB
+
+Neu incidents_table khong OK:
+
+- Chua tao table SecurityIncidents
+- Table chua ACTIVE
+- Sai ten table trong backend/.env
+- IAM user thieu quyen DynamoDB
+
+Neu login loi:
+
+- Thieu JWT_SECRET_KEY
+- Backend chua restart sau khi sua .env
+- Dang chay nham backend cu
+
+
+11. Huong phat trien tiep theo theo kien truc AWS
+-------------------------------------------------
+Sau khi S3 va DynamoDB that da chay, nhom co the noi tiep phan security automation:
+
+GuardDuty / Security Hub
+-> EventBridge
+-> Lambda Incident Response
+-> DynamoDB SecurityIncidents
+-> Backend /api/incidents
+-> Frontend /incidents
+
+Frontend va backend hien tai da san sang doc incident tu bang SecurityIncidents.
+
+
+12. Tom tat gia tri .env can dung
+---------------------------------
+Vi du file backend/.env hoan chinh:
+
+AWS_REGION=ap-southeast-1
+S3_BUCKET_NAME=da-aws-documents-nhom5-2026
+DYNAMODB_DOCUMENTS_TABLE=Documents
+DYNAMODB_INCIDENTS_TABLE=SecurityIncidents
+JWT_SECRET_KEY=nhom5_secret_key_random_32_characters_2026
+FLASK_DEBUG=0
+
+Sau khi sua .env, luon restart backend.

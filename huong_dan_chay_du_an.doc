@@ -1,0 +1,409 @@
+HUONG DAN CHAY DU AN DA_AWS_FCAJ
+
+Muc dich
+--------
+File nay huong dan cac thanh vien trong nhom chay du an Document Management + Security Monitoring tren may local.
+
+Du an gom 2 phan:
+
+1. Backend: Python Flask
+2. Frontend: React + Vite
+
+Backend ket noi AWS that:
+
+- Amazon S3: luu file tai lieu
+- DynamoDB Documents: luu metadata file
+- DynamoDB SecurityIncidents: luu incident bao mat
+
+
+1. Yeu cau truoc khi chay
+-------------------------
+Moi thanh vien can cai:
+
+- Python 3.10 tro len
+- Node.js 20 tro len
+- npm
+- AWS CLI
+- Git
+
+Kiem tra tren PowerShell:
+
+python --version
+node --version
+npm --version
+aws --version
+
+
+2. Clone hoac mo source code
+----------------------------
+Neu clone tu GitHub:
+
+git clone <repository-url>
+cd da_aws_fcaj
+
+Neu da co source san:
+
+cd "D:\OneDrive\Máy tính\da_aws_fcaj"
+
+
+3. Cau hinh AWS CLI
+-------------------
+Chay:
+
+aws configure
+
+Nhap thong tin IAM user cua nhom:
+
+AWS Access Key ID: <access-key>
+AWS Secret Access Key: <secret-key>
+Default region name: ap-southeast-1
+Default output format: json
+
+Kiem tra dang nhap AWS:
+
+aws sts get-caller-identity
+
+Neu lenh nay tra ve Account va Arn la OK.
+
+
+4. Tao file backend/.env
+------------------------
+Trong thu muc backend, tao file ten la:
+
+.env
+
+Co the copy tu .env.example:
+
+copy backend\.env.example backend\.env
+
+Noi dung mau:
+
+AWS_REGION=ap-southeast-1
+S3_BUCKET_NAME=da-aws-documents-caominhhuy-2280601128
+DYNAMODB_DOCUMENTS_TABLE=Documents
+DYNAMODB_INCIDENTS_TABLE=SecurityIncidents
+JWT_SECRET_KEY=nhom5_secret_key_random_32_characters_2026
+FLASK_DEBUG=0
+
+Luu y:
+
+- S3_BUCKET_NAME phai dung ten bucket AWS that.
+- DYNAMODB_DOCUMENTS_TABLE phai dung ten table Documents.
+- DYNAMODB_INCIDENTS_TABLE phai dung ten table SecurityIncidents.
+- JWT_SECRET_KEY nen dai hon 32 ky tu.
+- Khong commit file .env len GitHub.
+
+
+5. Chay backend
+---------------
+Mo PowerShell tai thu muc goc du an:
+
+cd "D:\OneDrive\Máy tính\da_aws_fcaj"
+
+Vao thu muc backend:
+
+cd backend
+
+Tao virtual environment neu chua co:
+
+python -m venv venv
+
+Kich hoat virtual environment:
+
+.\venv\Scripts\Activate.ps1
+
+Neu PowerShell chan script, chay:
+
+Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
+.\venv\Scripts\Activate.ps1
+
+Cai thu vien:
+
+pip install -r requirements.txt
+
+Chay backend:
+
+python app.py
+
+Neu thanh cong, backend chay tai:
+
+http://127.0.0.1:5000
+
+
+6. Test backend health
+----------------------
+Mo PowerShell moi, chay:
+
+Invoke-RestMethod http://127.0.0.1:5000/api/health
+
+Ket qua dung:
+
+status: ok
+backend: ok
+s3: ok
+documents_table: ok
+incidents_table: ok
+
+Neu status la degraded thi xem muc "Loi thuong gap" ben duoi.
+
+
+7. Chay frontend
+----------------
+Mo PowerShell moi tai thu muc goc du an:
+
+cd "D:\OneDrive\Máy tính\da_aws_fcaj"
+
+Vao thu muc frontend:
+
+cd frontend
+
+Cai dependencies:
+
+npm install
+
+Chay frontend:
+
+npm run dev
+
+Neu thanh cong, frontend chay tai:
+
+http://127.0.0.1:5173
+
+Mo trinh duyet va truy cap dia chi tren.
+
+
+8. Tai khoan dang nhap demo
+---------------------------
+Admin:
+
+username: admin
+password: admin123
+
+User thuong:
+
+username: user1
+password: password1
+
+Quyen khac nhau:
+
+- admin: upload, download, delete document, xem incident, doi status incident
+- user1: upload, download, xem document, xem incident, khong duoc delete document
+
+
+9. Test chuc nang tai lieu
+--------------------------
+Dang nhap bang admin:
+
+admin / admin123
+
+Test upload:
+
+1. Vao trang Upload
+2. Chon file .pdf, .docx, .xlsx, .png, .jpg, .jpeg hoac .txt
+3. Bam Upload
+4. Neu thanh cong, quay ve Dashboard se thay file moi
+
+Test download:
+
+1. O Dashboard, bam Download tren file vua upload
+2. Trinh duyet se mo/tai file bang presigned URL tu S3
+
+Test delete:
+
+1. Dang nhap admin
+2. O Dashboard, bam Delete
+3. File se bi xoa khoi S3 va metadata bi xoa khoi DynamoDB
+
+Test phan quyen:
+
+1. Logout
+2. Dang nhap user1 / password1
+3. Kiem tra nut Delete khong hien voi user thuong
+
+
+10. Test incident
+-----------------
+Trang incident:
+
+http://127.0.0.1:5173/incidents
+
+Neu bang SecurityIncidents co du lieu, incident se hien tren giao dien.
+
+De tao incident demo bang AWS CLI:
+
+aws dynamodb put-item `
+  --table-name SecurityIncidents `
+  --region ap-southeast-1 `
+  --item '{
+    "incident_id": {"S": "demo-001"},
+    "timestamp": {"S": "2026-07-10T10:00:00Z"},
+    "finding_type": {"S": "UnauthorizedAccess:EC2/SSHBruteForce"},
+    "severity": {"S": "HIGH"},
+    "status": {"S": "OPEN"},
+    "region": {"S": "ap-southeast-1"},
+    "account_id": {"S": "demo-account"},
+    "resource_id": {"S": "i-demo123"}
+  }'
+
+Sau do refresh trang Incidents.
+
+Admin co the doi status:
+
+- OPEN
+- INVESTIGATING
+- RESOLVED
+
+
+11. Test bang API nhanh
+-----------------------
+Test login:
+
+Invoke-RestMethod `
+  -Method Post `
+  -Uri http://127.0.0.1:5000/api/login `
+  -ContentType "application/json" `
+  -Body '{"username":"admin","password":"admin123"}'
+
+Test health:
+
+Invoke-RestMethod http://127.0.0.1:5000/api/health
+
+
+12. Build frontend de kiem tra production
+-----------------------------------------
+Trong thu muc frontend:
+
+npm run build
+
+Neu build thanh cong, thu muc dist se duoc tao.
+
+
+13. Loi thuong gap
+------------------
+Loi: Cannot upload document to AWS
+
+Nguyen nhan thuong gap:
+
+- S3 bucket sai ten trong backend/.env
+- IAM user chua co quyen S3
+- AWS CLI chua configure dung credential
+- Backend chua restart sau khi sua .env
+
+Cach kiem tra:
+
+aws s3api head-bucket --bucket da-aws-documents-caominhhuy-2280601128 --region ap-southeast-1
+
+Neu lenh tren thanh cong, se tra ve:
+
+AccessPointAlias: false
+
+Sau do restart backend.
+
+
+Loi: s3 ok false trong /api/health
+
+Kiem tra:
+
+- Bucket co ton tai khong
+- Bucket co dung region ap-southeast-1 khong
+- IAM user/role co quyen s3:ListBucket, s3:PutObject, s3:GetObject, s3:DeleteObject khong
+
+
+Loi: documents_table ok false
+
+Kiem tra:
+
+- DynamoDB table Documents da tao chua
+- Table co trang thai Active chua
+- Ten trong .env co dung khong
+- IAM user co quyen DynamoDB khong
+
+
+Loi: incidents_table ok false
+
+Kiem tra:
+
+- DynamoDB table SecurityIncidents da tao chua
+- Table co trang thai Active chua
+- Ten trong .env co dung khong
+- IAM user co quyen DynamoDB khong
+
+
+Loi: npm khong chay duoc
+
+Thu dung:
+
+npm.cmd install
+npm.cmd run dev
+
+Neu node khong ton tai:
+
+- Cai Node.js LTS
+- Dong va mo lai PowerShell
+
+
+Loi: port 5000 da duoc su dung
+
+Kiem tra process:
+
+Get-NetTCPConnection -LocalPort 5000 -State Listen | Select-Object LocalAddress,LocalPort,State,OwningProcess
+
+Dung process:
+
+Stop-Process -Id <OwningProcess> -Force
+
+
+14. Thu tu chay moi lan lam viec
+--------------------------------
+Moi lan muon chay du an:
+
+Terminal 1 - Backend:
+
+cd "D:\OneDrive\Máy tính\da_aws_fcaj\backend"
+.\venv\Scripts\Activate.ps1
+python app.py
+
+Terminal 2 - Frontend:
+
+cd "D:\OneDrive\Máy tính\da_aws_fcaj\frontend"
+npm run dev
+
+Mo trinh duyet:
+
+http://127.0.0.1:5173
+
+
+15. Checklist truoc khi demo
+----------------------------
+- Backend dang chay o port 5000
+- Frontend dang chay o port 5173
+- /api/health tra status ok
+- Dang nhap admin thanh cong
+- Upload file thanh cong
+- File hien trong S3
+- Metadata hien trong DynamoDB Documents
+- Download file thanh cong
+- Trang /incidents doc duoc du lieu tu SecurityIncidents
+- User thuong khong co quyen delete
+
+
+16. Lien ket voi kien truc AWS
+------------------------------
+Phan backend/frontend hien tai di theo luong:
+
+User
+-> React Frontend
+-> Flask Backend
+-> Amazon S3
+-> DynamoDB Documents
+
+Phan incident di theo luong:
+
+GuardDuty / Security Hub
+-> EventBridge
+-> Lambda Incident Response
+-> DynamoDB SecurityIncidents
+-> Flask Backend /api/incidents
+-> React Frontend /incidents
+
+Neu nhom Security chua lam Lambda, co the tao incident demo bang tay trong DynamoDB de test frontend/backend.

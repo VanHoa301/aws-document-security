@@ -1,39 +1,46 @@
-import jwt
 import os
-from flask import Blueprint, request, jsonify
 from datetime import datetime, timedelta
+
+import jwt
+from flask import Blueprint, jsonify, request
 
 auth_bp = Blueprint('auth', __name__)
 
-# User đơn giản cho demo — thực tế lưu trong DynamoDB
+# Demo users. In production, use DynamoDB/Cognito or another identity provider.
 USERS = {
-    'admin': 'admin123',
-    'user1': 'password1'
+    'admin': {'password': 'admin123', 'role': 'admin'},
+    'user1': {'password': 'password1', 'role': 'user'},
 }
 
 
 @auth_bp.route('/login', methods=['POST'])
 def login():
-    data = request.get_json()
+    data = request.get_json() or {}
     username = data.get('username', '').strip()
     password = data.get('password', '').strip()
 
     if not username or not password:
-        return jsonify({'error': 'Vui lòng nhập username và password'}), 400
+        return jsonify({'error': 'Username and password are required'}), 400
 
-    if USERS.get(username) != password:
-        return jsonify({'error': 'Username hoặc password không đúng'}), 401
+    user = USERS.get(username)
+    if not user or user['password'] != password:
+        return jsonify({'error': 'Username or password is incorrect'}), 401
+
+    secret = os.getenv('JWT_SECRET_KEY')
+    if not secret:
+        return jsonify({'error': 'JWT_SECRET_KEY is not configured'}), 500
 
     token = jwt.encode(
         {
             'username': username,
-            'exp': datetime.utcnow() + timedelta(hours=8)
+            'role': user['role'],
+            'exp': datetime.utcnow() + timedelta(hours=8),
         },
-        os.getenv('JWT_SECRET_KEY'),
-        algorithm='HS256'
+        secret,
+        algorithm='HS256',
     )
 
-    return jsonify({'token': token, 'username': username})
+    return jsonify({'token': token, 'username': username, 'role': user['role']})
 
 
 @auth_bp.route('/verify', methods=['GET'])
@@ -42,6 +49,10 @@ def verify():
 
     @require_auth
     def _verify():
-        return jsonify({'username': request.current_user, 'valid': True})
+        return jsonify({
+            'username': request.current_user,
+            'role': request.current_role,
+            'valid': True,
+        })
 
     return _verify()

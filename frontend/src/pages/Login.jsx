@@ -20,51 +20,66 @@ export default function Login() {
       const res = await api.post('/login', form);
       localStorage.setItem('token', res.data.token);
       localStorage.setItem('username', res.data.username);
+      localStorage.setItem('role', res.data.role);
       navigate('/');
     } catch (err) {
-      setError(err.response?.data?.error || 'Đăng nhập thất bại');
+      setError(err.response?.data?.error || 'Login failed');
     } finally {
       setLoading(false);
     }
   }
 
   return (
-    <div className="d-flex justify-content-center align-items-center vh-100 bg-light">
-      <div className="card shadow p-4" style={{ width: 380 }}>
-        <h4 className="text-center mb-1 fw-bold">DA_AWS Documents</h4>
-        <p className="text-center text-muted small mb-4">Hệ thống quản lý tài liệu</p>
+    <main className="login-page">
+      <section className="login-hero">
+        <div className="brand-lockup mb-4">
+          <span className="brand-mark">AWS</span>
+          <span>
+            <span className="brand-title">DA_AWS Documents</span>
+            <span className="brand-subtitle">Secure document platform</span>
+          </span>
+        </div>
+        <h1>Manage internal documents and monitor cloud security events.</h1>
+      </section>
 
-        {error && <div className="alert alert-danger py-2">{error}</div>}
-
-        <form onSubmit={handleSubmit}>
-          <div className="mb-3">
-            <label className="form-label">Username</label>
-            <input
-              className="form-control"
-              name="username"
-              value={form.username}
-              onChange={handleChange}
-              placeholder="Nhập username"
-              required
-            />
-          </div>
+      <section className="login-card-wrap">
+        <div className="login-card">
           <div className="mb-4">
-            <label className="form-label">Password</label>
-            <input
-              className="form-control"
-              type="password"
-              name="password"
-              value={form.password}
-              onChange={handleChange}
-              placeholder="Nhập password"
-              required
-            />
+            <div className="eyebrow">Team access</div>
+            <h2 className="page-title fs-3">Sign in</h2>
+            <p className="page-copy mb-0">Use the demo account assigned for backend/frontend testing.</p>
           </div>
-          <button className="btn btn-primary w-100" type="submit" disabled={loading}>
-            {loading ? 'Đang đăng nhập...' : 'Đăng nhập'}
+
+          {error && <div className="alert alert-danger py-2">{error}</div>}
+
+          <form onSubmit={handleSubmit}>
+            <div className="mb-3">
+              <label className="form-label fw-semibold">Username</label>
+              <input
+                className="form-control form-control-lg"
+                name="username"
+                value={form.username}
+                onChange={handleChange}
+                required
+              />
+            </div>
+            <div className="mb-4">
+              <label className="form-label fw-semibold">Password</label>
+              <input
+                className="form-control form-control-lg"
+                type="password"
+                name="password"
+                value={form.password}
+                onChange={handleChange}
+                required
+              />
+            </div>
+            <button className="btn btn-primary btn-lg w-100" type="submit" disabled={loading}>
+            {loading ? 'Signing in...' : 'Sign in'}
           </button>
         </form>
       </div>
-    </div>
+    </section>
+  </main>
   );
 }
