@@ -1,4 +1,5 @@
 import os
+import json
 from decimal import Decimal
 
 import boto3
@@ -60,3 +61,32 @@ def update_incident_status(incident_id, status):
         ReturnValues='ALL_NEW',
     )
     return _json_safe(response.get('Attributes', {}))
+
+
+def invoke_incident_action(incident, action, approved_by):
+    function_name = os.getenv('SECURITY_RESPONSE_LAMBDA_FUNCTION')
+    if not function_name:
+        raise ValueError('SECURITY_RESPONSE_LAMBDA_FUNCTION is not configured')
+
+    instance_id = incident.get('instance_id') or incident.get('resource_id')
+    if not instance_id or not str(instance_id).startswith('i-'):
+        raise ValueError('Incident does not reference an EC2 instance')
+
+    payload = {
+        'action': action,
+        'incident_id': incident['incident_id'],
+        'instance_id': instance_id,
+        'approved_by': approved_by,
+    }
+    client = boto3.client('lambda', region_name=os.getenv('AWS_REGION'))
+    response = client.invoke(
+        FunctionName=function_name,
+        InvocationType='RequestResponse',
+        Payload=json.dumps(payload).encode('utf-8'),
+    )
+    result = json.loads(response['Payload'].read() or '{}')
+    if response.get('FunctionError'):
+        raise RuntimeError(result.get('errorMessage', 'Security response Lambda failed'))
+
+    body = result.get('body', result)
+    return json.loads(body) if isinstance(body, str) else body

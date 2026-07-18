@@ -1,0 +1,119 @@
+{
+  "Comment": "GuardDuty incident processing with human approval",
+  "StartAt": "ProcessGuardDutyFinding",
+  "TimeoutSeconds": 86400,
+  "States": {
+    "ProcessGuardDutyFinding": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::lambda:invoke",
+      "Parameters": {
+        "FunctionName": "arn:aws:lambda:ap-southeast-1:674695457317:function:SecurityIncidentResponse",
+        "Payload.$": "$"
+      },
+      "ResultSelector": {
+        "result.$": "States.StringToJson($.Payload.body)"
+      },
+      "ResultPath": "$.processing",
+      "Next": "ApprovalRequired"
+    },
+    "ApprovalRequired": {
+      "Type": "Choice",
+      "Choices": [
+        {
+          "Variable": "$.processing.result.requires_approval",
+          "BooleanEquals": true,
+          "Next": "WaitForSecurityApproval"
+        }
+      ],
+      "Default": "RecordedWithoutApproval"
+    },
+    "RecordedWithoutApproval": {
+      "Type": "Pass",
+      "Result": "Incident recorded; human approval not required",
+      "End": true
+    },
+    "WaitForSecurityApproval": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::lambda:invoke.waitForTaskToken",
+      "Parameters": {
+        "FunctionName": "arn:aws:lambda:ap-southeast-1:674695457317:function:SecurityApprovalNotifier",
+        "Payload": {
+          "task_token.$": "$$.Task.Token",
+          "incident_id.$": "$.processing.result.incident_id",
+          "instance_id.$": "$.processing.result.instance_id",
+          "severity.$": "$.processing.result.severity",
+          "severity_score.$": "$.processing.result.severity_score"
+        }
+      },
+      "ResultPath": "$.approval",
+      "Next": "RouteDecision"
+    },
+    "RouteDecision": {
+      "Type": "Choice",
+      "Choices": [
+        {
+          "Variable": "$.approval.decision",
+          "StringEquals": "QUARANTINE",
+          "Next": "QuarantineInstance"
+        },
+        {
+          "Variable": "$.approval.decision",
+          "StringEquals": "STOP",
+          "Next": "StopInstance"
+        },
+        {
+          "Variable": "$.approval.decision",
+          "StringEquals": "REJECT",
+          "Next": "RecordRejection"
+        }
+      ],
+      "Default": "InvalidDecision"
+    },
+    "QuarantineInstance": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::lambda:invoke",
+      "Parameters": {
+        "FunctionName": "arn:aws:lambda:ap-southeast-1:674695457317:function:SecurityIncidentResponse",
+        "Payload": {
+          "action": "QUARANTINE_APPROVED",
+          "incident_id.$": "$.processing.result.incident_id",
+          "instance_id.$": "$.processing.result.instance_id",
+          "approved_by.$": "$.approval.approved_by"
+        }
+      },
+      "End": true
+    },
+    "StopInstance": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::lambda:invoke",
+      "Parameters": {
+        "FunctionName": "arn:aws:lambda:ap-southeast-1:674695457317:function:SecurityIncidentResponse",
+        "Payload": {
+          "action": "STOP_APPROVED",
+          "incident_id.$": "$.processing.result.incident_id",
+          "instance_id.$": "$.processing.result.instance_id",
+          "approved_by.$": "$.approval.approved_by"
+        }
+      },
+      "End": true
+    },
+    "RecordRejection": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::lambda:invoke",
+      "Parameters": {
+        "FunctionName": "arn:aws:lambda:ap-southeast-1:674695457317:function:SecurityIncidentResponse",
+        "Payload": {
+          "action": "REJECT_APPROVAL",
+          "incident_id.$": "$.processing.result.incident_id",
+          "approved_by.$": "$.approval.approved_by"
+        }
+      },
+      "End": true
+    },
+    "InvalidDecision": {
+      "Type": "Fail",
+      "Error": "InvalidApprovalDecision",
+      "Cause": "The callback returned an unsupported decision"
+    }
+  }
+}

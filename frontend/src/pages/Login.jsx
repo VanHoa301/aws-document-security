@@ -1,9 +1,10 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import api from '../services/api';
 
 export default function Login() {
   const navigate = useNavigate();
+  const location = useLocation();
   const [form, setForm] = useState({ username: '', password: '' });
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
@@ -21,7 +22,10 @@ export default function Login() {
       localStorage.setItem('token', res.data.token);
       localStorage.setItem('username', res.data.username);
       localStorage.setItem('role', res.data.role);
-      navigate('/');
+      const destination = location.state?.from
+        ? `${location.state.from.pathname}${location.state.from.search || ''}`
+        : '/';
+      navigate(destination, { replace: true });
     } catch (err) {
       setError(err.response?.data?.error || 'Login failed');
     } finally {

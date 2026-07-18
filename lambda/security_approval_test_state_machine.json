@@ -1,0 +1,64 @@
+{
+  "Comment": "Safe test workflow for human security approval",
+  "StartAt": "WaitForSecurityApproval",
+  "TimeoutSeconds": 86400,
+  "States": {
+    "WaitForSecurityApproval": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::lambda:invoke.waitForTaskToken",
+      "Parameters": {
+        "FunctionName": "arn:aws:lambda:ap-southeast-1:674695457317:function:SecurityApprovalNotifier",
+        "Payload": {
+          "task_token.$": "$$.Task.Token",
+          "incident_id.$": "$.incident_id",
+          "instance_id.$": "$.instance_id",
+          "severity.$": "$.severity",
+          "severity_score.$": "$.severity_score"
+        }
+      },
+      "ResultPath": "$.approval",
+      "Next": "RouteDecision"
+    },
+    "RouteDecision": {
+      "Type": "Choice",
+      "Choices": [
+        {
+          "Variable": "$.approval.decision",
+          "StringEquals": "QUARANTINE",
+          "Next": "QuarantineApprovedTest"
+        },
+        {
+          "Variable": "$.approval.decision",
+          "StringEquals": "STOP",
+          "Next": "StopApprovedTest"
+        },
+        {
+          "Variable": "$.approval.decision",
+          "StringEquals": "REJECT",
+          "Next": "Rejected"
+        }
+      ],
+      "Default": "InvalidDecision"
+    },
+    "QuarantineApprovedTest": {
+      "Type": "Pass",
+      "Result": "Quarantine decision recorded; no EC2 action in test workflow",
+      "End": true
+    },
+    "StopApprovedTest": {
+      "Type": "Pass",
+      "Result": "Stop decision recorded; no EC2 action in test workflow",
+      "End": true
+    },
+    "Rejected": {
+      "Type": "Pass",
+      "Result": "Request rejected; no EC2 action",
+      "End": true
+    },
+    "InvalidDecision": {
+      "Type": "Fail",
+      "Error": "InvalidApprovalDecision",
+      "Cause": "The callback returned an unsupported decision"
+    }
+  }
+}

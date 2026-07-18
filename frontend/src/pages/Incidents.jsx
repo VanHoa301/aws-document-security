@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import Navbar from '../components/Navbar';
 import api from '../services/api';
 
@@ -10,6 +11,8 @@ export default function Incidents() {
   const [selected, setSelected] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [actionLoading, setActionLoading] = useState('');
+  const [searchParams] = useSearchParams();
   const role = localStorage.getItem('role');
 
   useEffect(() => {
@@ -33,6 +36,16 @@ export default function Incidents() {
       });
       const res = await api.get(`/incidents?${params.toString()}`);
       setIncidents(res.data);
+      const requestedIncident = searchParams.get('incident');
+      if (requestedIncident) {
+        const match = res.data.find(item => item.incident_id === requestedIncident);
+        if (match) {
+          setSelected(match);
+        } else {
+          const detail = await api.get(`/incidents/${encodeURIComponent(requestedIncident)}`);
+          setSelected(detail.data);
+        }
+      }
     } catch (err) {
       setError(err.response?.data?.error || 'Cannot load incidents');
     } finally {
@@ -53,6 +66,26 @@ export default function Incidents() {
       setSelected(res.data);
     } catch (err) {
       setError(err.response?.data?.error || 'Cannot update incident status');
+    }
+  }
+
+  async function runResponseAction(action) {
+    if (!selected) return;
+    const labels = { quarantine: 'cách ly', restore: 'khôi phục', stop: 'DỪNG' };
+    const label = labels[action] || action;
+    if (!window.confirm(`Xác nhận ${label} EC2 ${selected.instance_id || selected.resource_id}?`)) return;
+
+    setActionLoading(action);
+    setError('');
+    try {
+      const res = await api.post(`/incidents/${selected.incident_id}/${action}`);
+      const updated = res.data.incident;
+      setIncidents(current => current.map(item => item.incident_id === updated.incident_id ? updated : item));
+      setSelected(updated);
+    } catch (err) {
+      setError(err.response?.data?.detail || err.response?.data?.error || `Cannot ${action} instance`);
+    } finally {
+      setActionLoading('');
     }
   }
 
@@ -207,6 +240,30 @@ export default function Incidents() {
                     </dl>
                     {role === 'admin' && (
                       <div>
+                        <div className="muted-small mb-2">Approved response actions</div>
+                        <div className="d-grid gap-2 mb-4">
+                          <button
+                            className="btn btn-danger"
+                            disabled={Boolean(actionLoading) || !String(selected.resource_id || selected.instance_id || '').startsWith('i-')}
+                            onClick={() => runResponseAction('quarantine')}
+                          >
+                            {actionLoading === 'quarantine' ? 'Quarantining...' : 'Approve quarantine'}
+                          </button>
+                          <button
+                            className="btn btn-outline-success"
+                            disabled={Boolean(actionLoading) || !selected.original_security_groups}
+                            onClick={() => runResponseAction('restore')}
+                          >
+                            {actionLoading === 'restore' ? 'Restoring...' : 'Restore security groups'}
+                          </button>
+                          <button
+                            className="btn btn-outline-danger"
+                            disabled={Boolean(actionLoading) || !String(selected.resource_id || selected.instance_id || '').startsWith('i-')}
+                            onClick={() => runResponseAction('stop')}
+                          >
+                            {actionLoading === 'stop' ? 'Stopping...' : 'Stop EC2 (emergency)'}
+                          </button>
+                        </div>
                         <div className="muted-small mb-2">Update response status</div>
                         <div className="d-flex flex-wrap gap-2">
                           {STATUSES.map(status => (

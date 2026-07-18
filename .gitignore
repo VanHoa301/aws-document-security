@@ -28,3 +28,4 @@ Thumbs.db
 # Microsoft Office temporary lock files
 ~$*.docx
 ~$*.doc
+.deploy/
